@@ -2,86 +2,99 @@
 
 An analyst-grade tool for job hunters to research target companies — AI-powered dossiers with recent news, tech problems, and opportunities sourced from Reddit, LinkedIn, HackerNews, blogs, and job postings.
 
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
+| **Backend** | Node.js, Express, TypeScript |
+| **Database** | PostgreSQL (hosted on [Neon](https://neon.tech) — serverless, no Docker required) |
+| **AI / LLM** | Pluggable provider abstraction — default: DeepSeek V3 via NVIDIA NIM (`deepseek-ai/deepseek-v3.2`) |
+| **Web Search** | Tavily or SerpAPI (injected as context for non-native-search providers) |
+| **Monorepo** | npm workspaces (`/client`, `/server`, `/shared`) |
+| **Shared Types** | `/shared` package — TypeScript interfaces used by both client and server |
+
 ## Features
 
-- Add companies individually or in bulk
-- AI research agent that searches the web and generates structured intelligence
-- News feed filterable by source type (Reddit, LinkedIn, HackerNews, Blog, Articles)
-- Problem statements with opportunity framing and difficulty ratings
-- Pluggable LLM backends: DeepSeek V3, Anthropic Claude, OpenAI, Ollama
-- Dark, dense analyst-workstation aesthetic
+- **3-page navigation**: Dashboard, Companies, Research
+- **Dashboard**: Add companies (single, bulk, or discover by location/zip), stats overview, shortlist view, recently researched
+- **Companies**: Filter, search, sort company list — click to view full intelligence profile
+- **Research**: Queue management — pending, active, failed, completed jobs with bulk actions
+- **AI research agent**: Generates structured dossiers with news and problem statements
+- **News feed**: Filterable by source type (Reddit, LinkedIn, HackerNews, Blog, Articles)
+- **Problem statements**: Opportunity framing and difficulty ratings (low / medium / high)
+- **Discover by location**: Enter a city, zip code, or region + optional industry — AI finds real companies
+- **Bulk import**: Paste a list of companies (name, URL, or both) — one per line
+- **Background task tracker**: Fixed badge showing all active research jobs across all companies
+- **Shortlist**: Star companies for quick access
+- **Tags**: Add custom tags per company
+- **PDF export**: Print-optimized layout for any company profile
+- **Research cache**: If two companies share the same website, research is cloned instantly
 
 ## Local Setup
 
 ### Prerequisites
 - Node.js 20+
-- Docker + Docker Compose (for PostgreSQL)
-- API keys for your chosen LLM provider + web search provider
+- A [Neon](https://neon.tech) free account (or any PostgreSQL connection string)
+- API key for your chosen LLM provider
 
 ### Steps
 
 1. Clone and install dependencies:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/Sanaan7788/company-intelligence.git
    cd company-intelligence
    npm install
    ```
 
-2. Copy environment file and fill in your keys:
+2. Create a `.env` file at the repo root:
    ```bash
    cp .env.example .env
    ```
 
-3. Start PostgreSQL:
-   ```bash
-   docker-compose up db -d
-   ```
+3. Fill in your environment variables (see table below).
 
 4. Start the dev servers:
    ```bash
    npm run dev
    ```
 
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3001
+   - Frontend: http://localhost:5174
+   - Backend API: http://localhost:3004
+
+   Tables are auto-created on first server start — no migrations needed.
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | Active LLM backend | `deepseek` |
-| `DEEPSEEK_API_KEY` | DeepSeek API key | — |
-| `DEEPSEEK_MODEL` | DeepSeek model ID | `deepseek-chat` |
+| `DATABASE_URL` | PostgreSQL connection string (Neon or self-hosted) | — |
+| `PORT` | Server port | `3004` |
+| `LLM_PROVIDER` | Active LLM backend (`deepseek`, `anthropic`, `openai`, `ollama`) | `deepseek` |
+| `DEEPSEEK_API_KEY` | API key — use NVIDIA NIM key (`nvapi-...`) for DeepSeek via NIM | — |
+| `DEEPSEEK_BASE_URL` | Base URL for DeepSeek-compatible API | `https://integrate.api.nvidia.com/v1` |
+| `DEEPSEEK_MODEL` | Model ID | `deepseek-ai/deepseek-v3.2` |
 | `ANTHROPIC_API_KEY` | Anthropic API key | — |
 | `OPENAI_API_KEY` | OpenAI API key | — |
 | `OPENAI_MODEL` | OpenAI model ID | `gpt-4o` |
 | `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Ollama model name | `llama3.1` |
-| `WEB_SEARCH_PROVIDER` | Search backend for non-native providers | `tavily` |
-| `TAVILY_API_KEY` | Tavily search API key | — |
-| `SERPAPI_API_KEY` | SerpAPI search API key | — |
-| `DATABASE_URL` | PostgreSQL connection string | — |
-| `PORT` | Server port | `3001` |
+| `TAVILY_API_KEY` | Tavily search API key (optional — enriches non-native-search providers) | — |
+| `SERPAPI_API_KEY` | SerpAPI key (alternative to Tavily) | — |
 
-### Provider Notes
+### LLM Provider Notes
 
-- **DeepSeek** (default): Uses OpenAI-compatible API with web searches injected as context via Tavily/SerpAPI
-- **Anthropic**: Uses native web_search tool — no external search API needed
-- **OpenAI**: Same as DeepSeek — requires web search provider
-- **Ollama**: Local models — requires web search provider
+- **DeepSeek via NVIDIA NIM** (default): Use an `nvapi-` key with `DEEPSEEK_BASE_URL=https://integrate.api.nvidia.com/v1`. Web search context injected via Tavily/SerpAPI.
+- **Anthropic**: Uses native `web_search` tool — no external search API needed.
+- **OpenAI**: Requires Tavily or SerpAPI for web search context.
+- **Ollama**: Local models — requires Tavily or SerpAPI for web search context.
 
-## Deploy to Render
+## Project Structure
 
-1. Fork this repo
-2. Create a new Render account at render.com
-3. Click "New Blueprint" and connect your fork
-4. Render will detect `render.yaml` and provision:
-   - Web service for the Express backend
-   - Static site for the React frontend  
-   - PostgreSQL database
-5. Add your secret environment variables in the Render dashboard:
-   - `DEEPSEEK_API_KEY` (or your chosen provider's key)
-   - `TAVILY_API_KEY` (unless using Anthropic)
-6. Deploy
-
-The backend serves the API at `/api/*`. The frontend is a separate static site that proxies API calls to the backend service URL.
+```
+/client        React frontend (Vite)
+/server        Express backend
+/shared        Shared TypeScript types (Company, NewsItem, ProblemStatement, etc.)
+package.json   Root — npm workspaces
+.env           Environment variables (repo root, loaded by server)
+```
