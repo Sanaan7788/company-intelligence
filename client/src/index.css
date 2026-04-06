@@ -108,10 +108,26 @@ body {
     color: #b91c1c !important;
   }
 
-  /* Ensure sections don't break awkwardly */
+  /* Allow sections to span multiple pages */
   section {
-    page-break-inside: avoid;
+    page-break-inside: auto;
     margin-bottom: 1.5rem !important;
+  }
+
+  /* Avoid breaking individual cards mid-card */
+  section > div > div {
+    page-break-inside: avoid;
+  }
+
+  /* Remove height constraints so all content renders */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #root, .flex.flex-col.h-screen {
+    height: auto !important;
+    overflow: visible !important;
   }
 
   /* Hide animated elements */

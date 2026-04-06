@@ -48,7 +48,7 @@ export function BulkAddModal({ onClose, onSuccess, bulkAdd }: Props) {
           onChange={e => setText(e.target.value)}
           placeholder={"Stripe | https://stripe.com\nVercel | https://vercel.com"}
           rows={8}
-          className="w-full bg-[#0a0a0a] border border-gray-700 text-gray-200 text-xs px-2 py-2 focus:outline-none focus:border-amber-600 resize-none font-mono mb-3"
+          className="w-full bg-[#0a0a0a] border border-gray-700 text-gray-200 text-xs px-2 py-2 focus:outline-none focus:border-amber-700 resize-none font-mono mb-3"
         />
         <button
           onClick={handleSubmit}

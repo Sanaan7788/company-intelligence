@@ -2,9 +2,43 @@ import { Router, Request, Response } from 'express';
 import { pool } from '../db';
 import { normalizeWebsite } from '../utils/normalizeWebsite';
 import { researchCompany } from '../llm';
+import { getProvider } from '../llm/providers';
 import type { Company, BulkAddResult } from 'shared';
 
 export const companiesRouter = Router();
+
+// POST /api/companies/discover - find companies by location
+companiesRouter.post('/discover', async (req: Request, res: Response) => {
+  const { location, industry } = req.body;
+  if (!location) {
+    return res.status(400).json({ error: 'location is required' });
+  }
+
+  const systemPrompt = `You are a company research assistant. Return ONLY a raw JSON object — no markdown fences, no preamble, no explanation — matching this exact schema:
+{
+  "companies": [
+    { "name": string, "website": string }
+  ]
+}
+Return real companies only. Include the company's actual homepage URL. Return at least 10 companies if available.`;
+
+  const industryClause = industry ? ` in the ${industry} industry` : '';
+  const userPrompt = `List tech companies${industryClause} located in or near ${location}. Include their name and website URL.`;
+
+  try {
+    const provider = getProvider();
+    const raw = await provider.chat(systemPrompt, userPrompt);
+    let cleaned = raw.trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '');
+    const parsed = JSON.parse(cleaned);
+    return res.json(parsed);
+  } catch (err) {
+    console.error('Discovery failed:', err);
+    return res.status(500).json({ error: 'Discovery failed' });
+  }
+});
 
 function deriveName(website: string): string {
   try {
@@ -214,6 +248,16 @@ companiesRouter.post('/:id/research', async (req: Request, res: Response) => {
           );
         }
 
+        // If website was a placeholder and LLM returned the real one, update it
+        if (company.website.startsWith('unknown://') && result.website) {
+          try {
+            const realWebsite = normalizeWebsite(result.website);
+            await pool.query(`UPDATE companies SET website = $1 WHERE id = $2`, [realWebsite, id]);
+          } catch {
+            // ignore if it conflicts with an existing company
+          }
+        }
+
         await pool.query(
           `UPDATE companies SET status = 'done', last_researched_at = NOW() WHERE id = $1`,
           [id]
@@ -312,6 +356,32 @@ companiesRouter.post('/:id/research/problems', async (req: Request, res: Respons
       }
     })();
   } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/companies/:id/website - update website
+companiesRouter.patch('/:id/website', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { website } = req.body;
+  if (!website) {
+    return res.status(400).json({ error: 'website is required' });
+  }
+  const normalizedWebsite = normalizeWebsite(website);
+  try {
+    const result = await pool.query(
+      `UPDATE companies SET website = $1 WHERE id = $2 RETURNING *`,
+      [normalizedWebsite, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    return res.json(result.rows[0]);
+  } catch (err: any) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'A company with this website already exists' });
+    }
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
   }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Company } from 'shared';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   onAdd: (name: string, website: string) => Promise<Company>;
   onDelete: (id: string) => void;
   onBulkAdd: () => void;
+  onDiscover: () => void;
   onToggleShortlist: (id: string, shortlisted: boolean) => void;
 }
 
@@ -29,7 +30,59 @@ function getDomain(website: string): string {
   }
 }
 
-export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBulkAdd, onToggleShortlist }: Props) {
+function CompanyMenu({ company, onDelete, onToggleShortlist }: {
+  company: Company;
+  onDelete: (id: string) => void;
+  onToggleShortlist: (id: string, shortlisted: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-white font-bold opacity-0 group-hover:opacity-100 hover:text-amber-400 px-1 text-lg leading-none"
+        title="Options"
+      >
+        ⋮
+      </button>
+      {open && (
+        <div className="absolute right-0 top-5 z-50 bg-[#1a1a1a] border border-gray-800 min-w-[140px] shadow-lg">
+          <button
+            onClick={() => { onToggleShortlist(company.id, !company.shortlisted); setOpen(false); }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-800 text-left"
+          >
+            <span className={company.shortlisted ? 'text-amber-400' : 'text-gray-400'}>
+              {company.shortlisted ? '★' : '☆'}
+            </span>
+            <span className={company.shortlisted ? 'text-amber-400' : 'text-gray-400'}>
+              {company.shortlisted ? 'Remove shortlist' : 'Add to shortlist'}
+            </span>
+          </button>
+          <button
+            onClick={() => { onDelete(company.id); setOpen(false); }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-800 text-red-400 text-left border-t border-gray-800"
+          >
+            <span>×</span>
+            <span>Delete</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBulkAdd, onDiscover, onToggleShortlist }: Props) {
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
   const [error, setError] = useState('');
@@ -108,7 +161,7 @@ export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBu
           placeholder="Company name (optional)"
           value={name}
           onChange={e => setName(e.target.value)}
-          className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-1.5 focus:outline-none focus:border-amber-600"
+          className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-1.5 focus:outline-none focus:border-amber-700"
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
         />
         <input
@@ -116,7 +169,7 @@ export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBu
           placeholder="https://company.com (optional)"
           value={website}
           onChange={e => setWebsite(e.target.value)}
-          className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-2 focus:outline-none focus:border-amber-600"
+          className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-2 focus:outline-none focus:border-amber-700"
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
         />
         {error && <div className="text-red-400 text-xs mb-2">{error}</div>}
@@ -135,6 +188,12 @@ export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBu
             Bulk
           </button>
         </div>
+        <button
+          onClick={onDiscover}
+          className="w-full mt-1.5 border border-cyan-800 hover:border-cyan-700 text-cyan-500 hover:text-cyan-300 text-xs py-1.5 uppercase tracking-wider"
+        >
+          ⌖ Discover by Location
+        </button>
       </div>
 
       {/* Search */}
@@ -151,19 +210,19 @@ export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBu
       <div className="flex-1 overflow-y-auto">
         {/* Count + Sort + Filter row */}
         <div className="px-3 py-2 flex items-center gap-2 border-b border-gray-800">
-          <span className="text-xs text-gray-600 uppercase tracking-widest flex-1">
+          <span className="text-xs text-gray-400 uppercase tracking-widest flex-1">
             {filteredAndSorted.length} companies
           </span>
           {/* All / Shortlisted toggle */}
           <button
             onClick={() => setShowShortlisted(false)}
-            className={`text-xs px-1.5 py-0.5 border ${!showShortlisted ? 'border-amber-700 text-amber-400' : 'border-gray-800 text-gray-600 hover:text-gray-400'}`}
+            className={`text-xs px-1.5 py-0.5 border ${!showShortlisted ? 'border-amber-700 text-amber-400' : 'border-gray-800 text-gray-400 hover:text-gray-400'}`}
           >
             All
           </button>
           <button
             onClick={() => setShowShortlisted(true)}
-            className={`text-xs px-1.5 py-0.5 border ${showShortlisted ? 'border-amber-700 text-amber-400' : 'border-gray-800 text-gray-600 hover:text-gray-400'}`}
+            className={`text-xs px-1.5 py-0.5 border ${showShortlisted ? 'border-amber-700 text-amber-400' : 'border-gray-800 text-gray-400 hover:text-gray-400'}`}
           >
             ★
           </button>
@@ -189,31 +248,23 @@ export function Sidebar({ companies, selectedId, onSelect, onAdd, onDelete, onBu
           >
             <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-200 truncate">{company.name}</div>
-              <div className="text-xs text-gray-600 truncate">{getDomain(company.website)}</div>
+              {!company.website.startsWith('unknown://') && (
+                <div className="text-xs text-gray-400 truncate">{getDomain(company.website)}</div>
+              )}
             </div>
             <div className="flex items-center gap-1.5 ml-2">
               <span className={`text-xs border px-1 py-0.5 uppercase ${STATUS_COLORS[company.status] || STATUS_COLORS.pending}`}>
                 {company.status}
               </span>
-              {/* Shortlist star */}
-              <button
-                onClick={e => { e.stopPropagation(); onToggleShortlist(company.id, !company.shortlisted); }}
-                className={`text-sm leading-none px-0.5 ${company.shortlisted ? 'text-amber-400' : 'text-gray-700 hover:text-gray-400'}`}
-                title={company.shortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
-              >
-                {company.shortlisted ? '★' : '☆'}
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); onDelete(company.id); }}
-                className="text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100 text-xs px-1"
-              >
-                ×
-              </button>
+              {company.shortlisted && (
+                <span className="text-amber-400 text-sm leading-none">★</span>
+              )}
+              <CompanyMenu company={company} onDelete={onDelete} onToggleShortlist={onToggleShortlist} />
             </div>
           </div>
         ))}
         {filteredAndSorted.length === 0 && (
-          <div className="px-3 py-6 text-xs text-gray-600 text-center">
+          <div className="px-3 py-6 text-xs text-gray-400 text-center">
             {search || showShortlisted ? 'No matching companies' : 'No companies yet'}
           </div>
         )}

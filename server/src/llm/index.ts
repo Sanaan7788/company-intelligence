@@ -5,6 +5,7 @@ import { runWebSearches } from './webSearch';
 const SYSTEM_PROMPT = `You are a company intelligence analyst. Your job is to research companies for job hunters.
 Return ONLY a raw JSON object — no markdown fences, no preamble, no explanation — matching this exact schema:
 {
+  "website": string,
   "news": [
     {
       "title": string,
@@ -26,6 +27,8 @@ Return ONLY a raw JSON object — no markdown fences, no preamble, no explanatio
     }
   ]
 }
+
+The "website" field must be the company's real homepage URL (e.g. "https://stripe.com").
 
 Focus on:
 - Recent news (last 12-18 months): funding, launches, layoffs, engineering blog posts, major incidents

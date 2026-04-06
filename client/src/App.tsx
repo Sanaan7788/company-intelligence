@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Company, CompanyProfile } from 'shared';
-import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, triggerNewsRefresh, triggerProblemsRefresh, updateTags, toggleShortlist, fetchProvider } from './api';
+import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, triggerNewsRefresh, triggerProblemsRefresh, updateTags, toggleShortlist, updateWebsite, fetchProvider } from './api';
 import { Sidebar } from './components/Sidebar';
 import { ProfilePanel } from './components/ProfilePanel';
 import { BulkAddModal } from './components/BulkAddModal';
+import { LocationDiscoverModal } from './components/LocationDiscoverModal';
+import { TaskTracker } from './components/TaskTracker';
+import { TaskEntry } from './types';
 
 export default function App() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -11,7 +14,11 @@ export default function App() {
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [provider, setProvider] = useState<string>('');
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState<Record<string, TaskEntry>>({});
+  // Keep a ref of the previous companies list to detect status transitions
+  const prevCompaniesRef = useRef<Record<string, string>>({});
 
   const loadCompanies = useCallback(async () => {
     const data = await fetchCompanies();
@@ -32,6 +39,36 @@ export default function App() {
     loadCompanies();
     fetchProvider().then(setProvider);
   }, [loadCompanies]);
+
+  // Detect status transitions to update task entries
+  useEffect(() => {
+    const prev = prevCompaniesRef.current;
+    companies.forEach(company => {
+      const prevStatus = prev[company.id];
+      if (prevStatus === 'researching' && (company.status === 'done' || company.status === 'error')) {
+        // Transition detected — mark task completed
+        setTasks(t => {
+          if (!t[company.id]) return t;
+          return {
+            ...t,
+            [company.id]: { ...t[company.id], status: company.status as 'done' | 'error', completedAt: Date.now() },
+          };
+        });
+        // Remove after 5 seconds
+        setTimeout(() => {
+          setTasks(t => {
+            const next = { ...t };
+            delete next[company.id];
+            return next;
+          });
+        }, 5000);
+      }
+    });
+    // Update the ref
+    const next: Record<string, string> = {};
+    companies.forEach(c => { next[c.id] = c.status; });
+    prevCompaniesRef.current = next;
+  }, [companies]);
 
   // Poll for researching companies
   useEffect(() => {
@@ -68,7 +105,17 @@ export default function App() {
     await loadCompanies();
   };
 
+  const addTask = (id: string, taskType: TaskEntry['taskType']) => {
+    const company = companies.find(c => c.id === id);
+    if (!company) return;
+    setTasks(t => ({
+      ...t,
+      [id]: { companyId: id, companyName: company.name, taskType, status: 'running' },
+    }));
+  };
+
   const handleResearch = async (id: string, force = false) => {
+    addTask(id, 'Full Research');
     await triggerResearch(id, force);
     await loadCompanies();
     if (selectedId === id) {
@@ -77,6 +124,7 @@ export default function App() {
   };
 
   const handleNewsRefresh = async (id: string) => {
+    addTask(id, 'News Refresh');
     await triggerNewsRefresh(id);
     await loadCompanies();
     if (selectedId === id) {
@@ -85,10 +133,19 @@ export default function App() {
   };
 
   const handleProblemsRefresh = async (id: string) => {
+    addTask(id, 'Problems Refresh');
     await triggerProblemsRefresh(id);
     await loadCompanies();
     if (selectedId === id) {
       await loadProfile(id);
+    }
+  };
+
+  const handleUpdateWebsite = async (id: string, website: string) => {
+    const updated = await updateWebsite(id, website);
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, website: updated.website } : c));
+    if (profile && profile.company.id === id) {
+      setProfile(prev => prev ? { ...prev, company: { ...prev.company, website: updated.website } } : prev);
     }
   };
 
@@ -114,7 +171,7 @@ export default function App() {
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-[#0f0f0f] print:hidden">
         <div className="flex items-center gap-3">
           <span className="text-amber-400 font-bold text-sm tracking-widest uppercase">INTEL//DASH</span>
-          <span className="text-gray-600 text-xs">company intelligence</span>
+          <span className="text-gray-400 text-xs">company intelligence</span>
         </div>
         {provider && (
           <span className="text-xs text-gray-500 border border-gray-700 px-2 py-0.5">
@@ -132,6 +189,7 @@ export default function App() {
           onAdd={handleAddCompany}
           onDelete={handleDelete}
           onBulkAdd={() => setShowBulkModal(true)}
+          onDiscover={() => setShowDiscoverModal(true)}
           onToggleShortlist={handleToggleShortlist}
         />
         <ProfilePanel
@@ -142,6 +200,7 @@ export default function App() {
           onNewsRefresh={selectedId ? () => handleNewsRefresh(selectedId) : undefined}
           onProblemsRefresh={selectedId ? () => handleProblemsRefresh(selectedId) : undefined}
           onUpdateTags={handleUpdateTags}
+          onUpdateWebsite={handleUpdateWebsite}
         />
       </div>
 
@@ -152,6 +211,18 @@ export default function App() {
           bulkAdd={bulkAddCompanies}
         />
       )}
+
+      {showDiscoverModal && (
+        <LocationDiscoverModal
+          onClose={() => setShowDiscoverModal(false)}
+          onSuccess={loadCompanies}
+        />
+      )}
+
+      <TaskTracker
+        tasks={tasks}
+        runningCount={Object.values(tasks).filter(t => t.status === 'running').length}
+      />
     </div>
   );
 }

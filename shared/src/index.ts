@@ -40,6 +40,7 @@ export interface CompanyProfile {
 }
 
 export interface ResearchResult {
+  website?: string;
   news: {
     title: string;
     summary: string;

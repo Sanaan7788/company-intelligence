@@ -68,6 +68,19 @@ export async function updateTags(id: string, tags: string[]): Promise<Company> {
   return res.json();
 }
 
+export async function updateWebsite(id: string, website: string): Promise<Company> {
+  const res = await fetch(`${BASE_URL}/api/companies/${id}/website`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ website }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to update website');
+  }
+  return res.json();
+}
+
 export async function toggleShortlist(id: string, shortlisted: boolean): Promise<Company> {
   const res = await fetch(`${BASE_URL}/api/companies/${id}/shortlist`, {
     method: 'PATCH',
