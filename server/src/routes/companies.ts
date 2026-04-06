@@ -9,10 +9,12 @@ export const companiesRouter = Router();
 
 // POST /api/companies/discover - find companies by location
 companiesRouter.post('/discover', async (req: Request, res: Response) => {
-  const { location, industry } = req.body;
+  const { location, industry, count } = req.body;
   if (!location) {
     return res.status(400).json({ error: 'location is required' });
   }
+
+  const maxCount = Math.min(200, Math.max(5, parseInt(count) || 25));
 
   const systemPrompt = `You are a company research assistant. Return ONLY a raw JSON object — no markdown fences, no preamble, no explanation — matching this exact schema:
 {
@@ -20,10 +22,10 @@ companiesRouter.post('/discover', async (req: Request, res: Response) => {
     { "name": string, "website": string }
   ]
 }
-Return real companies only. Include the company's actual homepage URL. Return at least 10 companies if available.`;
+Return real companies only. Include each company's actual homepage URL. Return up to ${maxCount} companies. If fewer than ${maxCount} real companies exist in that area, return as many as you can find — do not pad with fake or uncertain entries.`;
 
   const industryClause = industry ? ` in the ${industry} industry` : '';
-  const userPrompt = `List tech companies${industryClause} located in or near ${location}. Include their name and website URL.`;
+  const userPrompt = `List up to ${maxCount} companies${industryClause} located in or near ${location}. Include their name and website URL. Return as many real companies as you can find, up to ${maxCount}.`;
 
   try {
     const provider = getProvider();
@@ -88,30 +90,50 @@ companiesRouter.post('/bulk', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Expected an array of companies' });
   }
 
+  // Normalize and validate all entries upfront
+  const prepared: { name: string; website: string; normalizedWebsite: string }[] = [];
   const results: BulkAddResult[] = [];
 
   for (const item of companies) {
     if (!item.name && !item.website) {
       results.push({ name: '', website: '', status: 'error', error: 'name or website is required' });
+      prepared.push({ name: '', website: '', normalizedWebsite: '' }); // placeholder to keep index alignment
       continue;
     }
-
     if (item.website && !item.name) item.name = deriveName(item.website);
     if (item.name && !item.website) item.website = syntheticWebsite(item.name);
-
     const normalizedWebsite = normalizeWebsite(item.website);
+    prepared.push({ name: item.name.trim(), website: item.website, normalizedWebsite });
+  }
+
+  // Batch insert all valid entries in a single query using unnest
+  const validItems = prepared.filter(p => p.name);
+  if (validItems.length > 0) {
+    const names = validItems.map(p => p.name);
+    const websites = validItems.map(p => p.normalizedWebsite);
 
     try {
-      const result = await pool.query(
-        `INSERT INTO companies (name, website) VALUES ($1, $2) RETURNING *`,
-        [item.name.trim(), normalizedWebsite]
+      const insertResult = await pool.query(
+        `INSERT INTO companies (name, website)
+         SELECT * FROM unnest($1::text[], $2::text[])
+         ON CONFLICT (website) DO NOTHING
+         RETURNING name, website`,
+        [names, websites]
       );
-      results.push({ name: item.name, website: normalizedWebsite, status: 'success', company: result.rows[0] });
+
+      const inserted = new Set(insertResult.rows.map((r: any) => r.website));
+
+      for (const item of validItems) {
+        if (inserted.has(item.normalizedWebsite)) {
+          results.push({ name: item.name, website: item.normalizedWebsite, status: 'success' });
+        } else {
+          results.push({ name: item.name, website: item.normalizedWebsite, status: 'duplicate', error: 'Already exists' });
+        }
+      }
     } catch (err: any) {
-      if (err.code === '23505') {
-        results.push({ name: item.name, website: normalizedWebsite, status: 'duplicate', error: 'Already exists' });
-      } else {
-        results.push({ name: item.name, website: normalizedWebsite, status: 'error', error: 'Database error' });
+      console.error('Bulk insert failed:', err);
+      for (const item of validItems) {
+        results.push({ name: item.name, website: item.normalizedWebsite, status: 'error', error: 'Database error' });
       }
     }
   }

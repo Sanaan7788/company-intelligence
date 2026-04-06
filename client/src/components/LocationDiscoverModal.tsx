@@ -14,6 +14,7 @@ interface Props {
 export function LocationDiscoverModal({ onClose, onSuccess }: Props) {
   const [location, setLocation] = useState('');
   const [industry, setIndustry] = useState('');
+  const [count, setCount] = useState(25);
   const [discovering, setDiscovering] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredCompany[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -36,7 +37,7 @@ export function LocationDiscoverModal({ onClose, onSuccess }: Props) {
       const res = await fetch('/api/companies/discover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location.trim(), industry: industry.trim() }),
+        body: JSON.stringify({ location: location.trim(), industry: industry.trim(), count }),
       });
       if (!res.ok) throw new Error('Discovery failed');
       const data = await res.json();
@@ -121,6 +122,37 @@ export function LocationDiscoverModal({ onClose, onSuccess }: Props) {
             onKeyDown={e => e.key === 'Enter' && handleDiscover()}
             className="w-full bg-[#0a0a0a] border border-gray-700 text-gray-200 text-xs px-2 py-2 focus:outline-none focus:border-amber-700"
           />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">Max companies to find</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={5}
+                  max={200}
+                  value={count}
+                  onChange={e => setCount(Math.min(200, Math.max(5, parseInt(e.target.value) || 5)))}
+                  className="w-14 bg-[#0a0a0a] border border-gray-700 text-amber-400 text-xs px-1.5 py-0.5 text-center focus:outline-none focus:border-amber-700"
+                />
+              </div>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={200}
+              step={5}
+              value={count}
+              onChange={e => setCount(parseInt(e.target.value))}
+              className="w-full accent-amber-500 cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-gray-600">
+              <span>5</span>
+              <span>50</span>
+              <span>100</span>
+              <span>150</span>
+              <span>200</span>
+            </div>
+          </div>
         </div>
 
         {error && <div className="text-red-400 text-xs mb-2">{error}</div>}
