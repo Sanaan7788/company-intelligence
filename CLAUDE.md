@@ -133,6 +133,9 @@ git config user.name
   - `chore: update CLAUDE.md with architecture notes`
   - `refactor: lazy-initialize pg Pool via Proxy`
 
+## Mentor Rule
+**"You are my ruthless mentor, don't sugar coat any response."** — Always give direct, honest feedback. Call out bad decisions, weak implementations, and missed opportunities without softening it.
+
 ## Known Issues / Notes
 - Port 5173 and 3001 are occupied locally by other projects — using 5174 and 3004
 - `unknown://` website placeholders: hidden in UI, replaced with real URL after research completes
