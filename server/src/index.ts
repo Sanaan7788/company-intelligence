@@ -9,6 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import { companiesRouter } from './routes/companies';
 import { configRouter } from './routes/config';
+import { scoringRouter } from './routes/scoring';
 import { initDb } from './db';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(express.json());
 
 app.use('/api/companies', companiesRouter);
 app.use('/api/config', configRouter);
+app.use('/api/scoring', scoringRouter);
 
 async function start() {
   await initDb();

@@ -1,6 +1,7 @@
 import { ResearchResult } from 'shared';
 import { getProvider } from './providers';
 import { runWebSearches } from './webSearch';
+import { recordTokens } from './tokenCounter';
 
 const SYSTEM_PROMPT = `You are a company intelligence analyst. Your job is to research companies for job hunters.
 Return ONLY a raw JSON object — no markdown fences, no preamble, no explanation — matching this exact schema:
@@ -55,10 +56,10 @@ Find recent news, engineering challenges, technology problems, and opportunities
     }
   }
 
-  const rawResponse = await provider.chat(SYSTEM_PROMPT, userPrompt);
+  const response = await provider.chat(SYSTEM_PROMPT, userPrompt);
+  recordTokens(response.prompt_tokens, response.completion_tokens);
 
-  // Parse JSON, stripping any accidental markdown fences
-  let cleaned = rawResponse.trim();
+  let cleaned = response.content.trim();
   cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
 
   const parsed: ResearchResult = JSON.parse(cleaned);

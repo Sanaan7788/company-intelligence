@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Company, CompanyProfile } from 'shared';
-import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, triggerNewsRefresh, triggerProblemsRefresh, updateTags, toggleShortlist, updateWebsite, fetchProvider } from './api';
+import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, triggerNewsRefresh, triggerProblemsRefresh, triggerTechStackResearch, triggerJobsResearch, triggerContactsResearch, triggerInterviewIntel, updateTags, toggleShortlist, updateWebsite, fetchProvider, fetchTokenStats } from './api';
 import { Nav } from './components/Nav';
 import { BulkAddModal } from './components/BulkAddModal';
 import { LocationDiscoverModal } from './components/LocationDiscoverModal';
@@ -18,6 +18,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [provider, setProvider] = useState<string>('');
+  const [tokenStats, setTokenStats] = useState({ total_tokens: 0, prompt_tokens: 0, completion_tokens: 0, total_calls: 0 });
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -42,7 +43,14 @@ export default function App() {
   useEffect(() => {
     loadCompanies();
     fetchProvider().then(setProvider);
+    fetchTokenStats().then(setTokenStats);
   }, [loadCompanies]);
+
+  // Poll token stats every 5s
+  useEffect(() => {
+    const interval = setInterval(() => fetchTokenStats().then(setTokenStats), 5_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Detect status transitions to update task entries
   useEffect(() => {
@@ -121,6 +129,30 @@ export default function App() {
     if (selectedId === id) await loadProfile(id);
   };
 
+  const handleTechStackRefresh = async (id: string) => {
+    addTask(id, 'Tech Stack');
+    await triggerTechStackResearch(id);
+    setTimeout(() => { if (selectedId === id) loadProfile(id); }, 15000);
+  };
+
+  const handleJobsRefresh = async (id: string) => {
+    addTask(id, 'Job Search');
+    await triggerJobsResearch(id);
+    setTimeout(() => { if (selectedId === id) loadProfile(id); }, 15000);
+  };
+
+  const handleContactsRefresh = async (id: string) => {
+    addTask(id, 'Contact Finder');
+    await triggerContactsResearch(id);
+    setTimeout(() => { if (selectedId === id) loadProfile(id); }, 15000);
+  };
+
+  const handleInterviewIntelRefresh = async (id: string) => {
+    addTask(id, 'Interview Intel');
+    await triggerInterviewIntel(id);
+    setTimeout(() => { if (selectedId === id) loadProfile(id); }, 15000);
+  };
+
   const handleUpdateWebsite = async (id: string, website: string) => {
     const updated = await updateWebsite(id, website);
     setCompanies(prev => prev.map(c => c.id === id ? { ...c, website: updated.website } : c));
@@ -150,7 +182,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-gray-200 overflow-hidden">
-      <Nav current={page} onChange={setPage} provider={provider} researchingCount={researchingCount} />
+      <Nav current={page} onChange={setPage} provider={provider} researchingCount={researchingCount} tokenStats={tokenStats} />
 
       {page === 'dashboard' && (
         <DashboardPage
@@ -176,6 +208,10 @@ export default function App() {
           onResearch={handleResearch}
           onNewsRefresh={handleNewsRefresh}
           onProblemsRefresh={handleProblemsRefresh}
+          onTechStackRefresh={selectedId ? () => handleTechStackRefresh(selectedId) : undefined}
+          onJobsRefresh={selectedId ? () => handleJobsRefresh(selectedId) : undefined}
+          onContactsRefresh={selectedId ? () => handleContactsRefresh(selectedId) : undefined}
+          onInterviewIntelRefresh={selectedId ? () => handleInterviewIntelRefresh(selectedId) : undefined}
           onUpdateTags={handleUpdateTags}
           onUpdateWebsite={handleUpdateWebsite}
           onRefreshProfile={selectedId ? () => loadProfile(selectedId) : () => {}}

@@ -13,6 +13,10 @@ interface Props {
   onResearch: (id: string, force?: boolean) => void;
   onNewsRefresh: (id: string) => void;
   onProblemsRefresh: (id: string) => void;
+  onTechStackRefresh?: () => void;
+  onJobsRefresh?: () => void;
+  onContactsRefresh?: () => void;
+  onInterviewIntelRefresh?: () => void;
   onUpdateTags: (id: string, tags: string[]) => Promise<void>;
   onUpdateWebsite: (id: string, website: string) => Promise<void>;
   onRefreshProfile: () => void;
@@ -39,7 +43,9 @@ function getDomain(website: string): string {
 export function CompaniesPage({
   companies, selectedId, profile, profileLoading,
   onSelect, onDelete, onToggleShortlist,
-  onResearch, onNewsRefresh, onProblemsRefresh, onUpdateTags, onUpdateWebsite, onRefreshProfile,
+  onResearch, onNewsRefresh, onProblemsRefresh,
+  onTechStackRefresh, onJobsRefresh, onContactsRefresh, onInterviewIntelRefresh,
+  onUpdateTags, onUpdateWebsite, onRefreshProfile,
 }: Props) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
@@ -174,6 +180,10 @@ export function CompaniesPage({
         onRefresh={onRefreshProfile}
         onNewsRefresh={selectedId ? () => onNewsRefresh(selectedId) : undefined}
         onProblemsRefresh={selectedId ? () => onProblemsRefresh(selectedId) : undefined}
+        onTechStackRefresh={onTechStackRefresh}
+        onJobsRefresh={onJobsRefresh}
+        onContactsRefresh={onContactsRefresh}
+        onInterviewIntelRefresh={onInterviewIntelRefresh}
         onUpdateTags={onUpdateTags}
         onUpdateWebsite={onUpdateWebsite}
       />

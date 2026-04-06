@@ -1,11 +1,11 @@
 import OpenAI from 'openai';
-import { LLMProvider } from '../types';
+import { LLMProvider, ChatResponse } from '../types';
 
 export const deepseekProvider: LLMProvider = {
   name: 'DeepSeek V3',
   supportsNativeWebSearch: false,
 
-  async chat(systemPrompt: string, userPrompt: string): Promise<string> {
+  async chat(systemPrompt: string, userPrompt: string): Promise<ChatResponse> {
     const client = new OpenAI({
       apiKey: process.env.DEEPSEEK_API_KEY,
       baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
@@ -22,6 +22,10 @@ export const deepseekProvider: LLMProvider = {
       max_tokens: 4096,
     });
 
-    return response.choices[0]?.message?.content || '';
+    return {
+      content: response.choices[0]?.message?.content || '',
+      prompt_tokens: response.usage?.prompt_tokens ?? 0,
+      completion_tokens: response.usage?.completion_tokens ?? 0,
+    };
   },
 };

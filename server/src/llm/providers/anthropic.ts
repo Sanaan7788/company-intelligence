@@ -1,10 +1,10 @@
-import { LLMProvider } from '../types';
+import { LLMProvider, ChatResponse } from '../types';
 
 export const anthropicProvider: LLMProvider = {
   name: 'Claude (Anthropic)',
   supportsNativeWebSearch: true,
 
-  async chat(systemPrompt: string, userPrompt: string): Promise<string> {
+  async chat(systemPrompt: string, userPrompt: string): Promise<ChatResponse> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
@@ -20,12 +20,7 @@ export const anthropicProvider: LLMProvider = {
         model: 'claude-sonnet-4-6',
         max_tokens: 8192,
         system: systemPrompt,
-        tools: [
-          {
-            type: 'web_search_20250305',
-            name: 'web_search',
-          },
-        ],
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: userPrompt }],
       }),
     });
@@ -36,13 +31,15 @@ export const anthropicProvider: LLMProvider = {
     }
 
     const data = await response.json() as any;
-
-    // Extract text content from the response
     const textContent = data.content
       ?.filter((block: any) => block.type === 'text')
       ?.map((block: any) => block.text)
       ?.join('') || '';
 
-    return textContent;
+    return {
+      content: textContent,
+      prompt_tokens: data.usage?.input_tokens ?? 0,
+      completion_tokens: data.usage?.output_tokens ?? 0,
+    };
   },
 };
