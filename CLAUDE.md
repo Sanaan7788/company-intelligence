@@ -68,11 +68,6 @@ GET    /api/config/provider         active LLM provider name
 
 ### ⚠️ Before every commit/push — switch to personal GitHub profile:
 ```bash
-# 1. Switch SSH key to personal
-ssh-add -D
-ssh-add --apple-use-keychain ~/.ssh/id_ed25519_personal
-
-# 2. Set git identity for this repo
 git config user.email "sanaan7788@gmail.com"
 git config user.name "Sanaan7788"
 ```
