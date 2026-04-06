@@ -79,7 +79,6 @@ git config user.name
 ```
 
 ### Commit message rules:
-- Never mention Claude, AI, or any tool in commit messages
 - Only describe the feature or change made (e.g. "add collapsible news feed sections", "fix dotenv path resolution")
 
 ## Known Issues / Notes
