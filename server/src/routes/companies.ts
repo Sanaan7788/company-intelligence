@@ -140,7 +140,7 @@ companiesRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/companies/:id/research - trigger research
+// POST /api/companies/:id/research - trigger full research
 companiesRouter.post('/:id/research', async (req: Request, res: Response) => {
   const { id } = req.params;
   const force = req.query.force === 'true';
@@ -223,6 +223,142 @@ companiesRouter.post('/:id/research', async (req: Request, res: Response) => {
         await pool.query(`UPDATE companies SET status = 'error' WHERE id = $1`, [id]);
       }
     })();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/companies/:id/research/news - refresh only news
+companiesRouter.post('/:id/research/news', async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const companyResult = await pool.query(`SELECT * FROM companies WHERE id = $1`, [id]);
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    const company: Company = companyResult.rows[0];
+
+    await pool.query(`UPDATE companies SET status = 'researching' WHERE id = $1`, [id]);
+
+    res.json({ success: true, message: 'News refresh started' });
+
+    (async () => {
+      try {
+        const result = await researchCompany(company.name, company.website);
+
+        await pool.query(`DELETE FROM news_items WHERE company_id = $1`, [id]);
+
+        for (const item of result.news) {
+          await pool.query(
+            `INSERT INTO news_items (company_id, title, summary, source_type, source_name, source_url, published_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [id, item.title, item.summary, item.source_type, item.source_name, item.source_url, item.published_at]
+          );
+        }
+
+        await pool.query(
+          `UPDATE companies SET status = 'done', last_researched_at = NOW() WHERE id = $1`,
+          [id]
+        );
+      } catch (err) {
+        console.error('News refresh failed:', err);
+        await pool.query(`UPDATE companies SET status = 'error' WHERE id = $1`, [id]);
+      }
+    })();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/companies/:id/research/problems - refresh only problem statements
+companiesRouter.post('/:id/research/problems', async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const companyResult = await pool.query(`SELECT * FROM companies WHERE id = $1`, [id]);
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    const company: Company = companyResult.rows[0];
+
+    await pool.query(`UPDATE companies SET status = 'researching' WHERE id = $1`, [id]);
+
+    res.json({ success: true, message: 'Problems refresh started' });
+
+    (async () => {
+      try {
+        const result = await researchCompany(company.name, company.website);
+
+        await pool.query(`DELETE FROM problem_statements WHERE company_id = $1`, [id]);
+
+        for (const ps of result.problem_statements) {
+          await pool.query(
+            `INSERT INTO problem_statements (company_id, title, description, opportunity, source_url, source_name, difficulty)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [id, ps.title, ps.description, ps.opportunity, ps.source_url, ps.source_name, ps.difficulty]
+          );
+        }
+
+        await pool.query(
+          `UPDATE companies SET status = 'done', last_researched_at = NOW() WHERE id = $1`,
+          [id]
+        );
+      } catch (err) {
+        console.error('Problems refresh failed:', err);
+        await pool.query(`UPDATE companies SET status = 'error' WHERE id = $1`, [id]);
+      }
+    })();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/companies/:id/tags - update tags
+companiesRouter.patch('/:id/tags', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { tags } = req.body;
+
+  if (!Array.isArray(tags)) {
+    return res.status(400).json({ error: 'tags must be an array of strings' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies SET tags = $1 WHERE id = $2 RETURNING *`,
+      [tags, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    return res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/companies/:id/shortlist - toggle shortlist
+companiesRouter.patch('/:id/shortlist', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { shortlisted } = req.body;
+
+  if (typeof shortlisted !== 'boolean') {
+    return res.status(400).json({ error: 'shortlisted must be a boolean' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies SET shortlisted = $1 WHERE id = $2 RETURNING *`,
+      [shortlisted, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    return res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

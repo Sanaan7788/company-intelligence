@@ -48,6 +48,36 @@ export async function triggerResearch(id: string, force = false): Promise<void> 
   if (!res.ok) throw new Error('Failed to trigger research');
 }
 
+export async function triggerNewsRefresh(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/companies/${id}/research/news`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to trigger news refresh');
+}
+
+export async function triggerProblemsRefresh(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/companies/${id}/research/problems`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to trigger problems refresh');
+}
+
+export async function updateTags(id: string, tags: string[]): Promise<Company> {
+  const res = await fetch(`${BASE_URL}/api/companies/${id}/tags`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) throw new Error('Failed to update tags');
+  return res.json();
+}
+
+export async function toggleShortlist(id: string, shortlisted: boolean): Promise<Company> {
+  const res = await fetch(`${BASE_URL}/api/companies/${id}/shortlist`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shortlisted }),
+  });
+  if (!res.ok) throw new Error('Failed to update shortlist');
+  return res.json();
+}
+
 export async function fetchProvider(): Promise<string> {
   const res = await fetch(`${BASE_URL}/api/config/provider`);
   if (!res.ok) return 'unknown';

@@ -27,3 +27,95 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
+
+@media print {
+  * {
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide sidebar, header, and all buttons */
+  aside,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Make the profile panel fill the page */
+  .flex.flex-1.overflow-hidden {
+    display: block !important;
+  }
+
+  main {
+    display: block !important;
+    width: 100% !important;
+    overflow: visible !important;
+    padding: 1rem !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Section headers */
+  h1 {
+    font-size: 1.25rem !important;
+    font-weight: bold !important;
+    color: #000 !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  a {
+    color: #0070f3 !important;
+  }
+
+  /* Cards */
+  .border {
+    border-color: #ccc !important;
+  }
+
+  /* Text colors — flatten for print */
+  .text-gray-100,
+  .text-gray-200,
+  .text-gray-300,
+  .text-gray-400 {
+    color: #111 !important;
+  }
+
+  .text-gray-500,
+  .text-gray-600,
+  .text-gray-700 {
+    color: #555 !important;
+  }
+
+  .text-amber-400,
+  .text-amber-500 {
+    color: #b45309 !important;
+  }
+
+  .text-cyan-400,
+  .text-cyan-500 {
+    color: #0369a1 !important;
+  }
+
+  .text-emerald-400 {
+    color: #047857 !important;
+  }
+
+  .text-red-400 {
+    color: #b91c1c !important;
+  }
+
+  /* Ensure sections don't break awkwardly */
+  section {
+    page-break-inside: avoid;
+    margin-bottom: 1.5rem !important;
+  }
+
+  /* Hide animated elements */
+  .animate-pulse {
+    animation: none !important;
+  }
+}

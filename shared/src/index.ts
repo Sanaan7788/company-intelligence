@@ -5,6 +5,8 @@ export interface Company {
   status: 'pending' | 'researching' | 'done' | 'error';
   created_at: string;
   last_researched_at: string | null;
+  tags: string[];
+  shortlisted: boolean;
 }
 
 export interface NewsItem {

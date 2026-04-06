@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { CompanyProfile, NewsItem, ProblemStatement } from 'shared';
 
 interface Props {
@@ -6,6 +6,9 @@ interface Props {
   loading: boolean;
   onResearch: (id: string, force?: boolean) => void;
   onRefresh?: () => void;
+  onNewsRefresh?: () => void;
+  onProblemsRefresh?: () => void;
+  onUpdateTags?: (id: string, tags: string[]) => Promise<void>;
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -31,6 +34,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type NewsFilter = 'all' | 'reddit' | 'linkedin' | 'blog' | 'article' | 'hackernews';
+
+function daysSince(dateStr: string): number {
+  const then = new Date(dateStr).getTime();
+  const now = Date.now();
+  return Math.floor((now - then) / (1000 * 60 * 60 * 24));
+}
 
 function NewsCard({ item }: { item: NewsItem }) {
   return (
@@ -85,10 +94,13 @@ function ProblemCard({ item }: { item: ProblemStatement }) {
   );
 }
 
-export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props) {
+export function ProfilePanel({ profile, loading, onResearch, onRefresh, onNewsRefresh, onProblemsRefresh, onUpdateTags }: Props) {
   const [newsFilter, setNewsFilter] = useState<NewsFilter>('all');
   const [problemsOpen, setProblemsOpen] = useState(true);
   const [newsOpen, setNewsOpen] = useState(true);
+  const [tagInput, setTagInput] = useState('');
+  const [savingTags, setSavingTags] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   if (!profile && !loading) {
     return (
@@ -116,6 +128,41 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
 
   const newsTypes = ['all', ...Array.from(new Set(news.map(n => n.source_type)))] as NewsFilter[];
 
+  const researchAgeDays = company.last_researched_at ? daysSince(company.last_researched_at) : null;
+  const showAgeWarning = researchAgeDays !== null && researchAgeDays > 30;
+
+  const handleAddTag = async (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed || !onUpdateTags) return;
+    const currentTags = company.tags || [];
+    if (currentTags.includes(trimmed)) {
+      setTagInput('');
+      return;
+    }
+    setSavingTags(true);
+    try {
+      await onUpdateTags(company.id, [...currentTags, trimmed]);
+      setTagInput('');
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    if (!onUpdateTags) return;
+    const currentTags = company.tags || [];
+    setSavingTags(true);
+    try {
+      await onUpdateTags(company.id, currentTags.filter(t => t !== tag));
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
   return (
     <main className="flex-1 overflow-y-auto p-4 space-y-6">
       {/* Header */}
@@ -126,7 +173,7 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
             className="text-xs text-cyan-500 hover:text-cyan-300">
             {company.website} ↗
           </a>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className={`text-xs border px-1.5 py-0.5 uppercase ${STATUS_COLORS[company.status] || STATUS_COLORS.pending}`}>
               {company.status}
             </span>
@@ -135,21 +182,68 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
                 Last researched: {new Date(company.last_researched_at).toLocaleString()}
               </span>
             )}
+            {showAgeWarning && (
+              <span className="text-xs text-amber-400 border border-amber-700 px-1.5 py-0.5">
+                ⚠ Research is {researchAgeDays} days old
+              </span>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {(company.tags || []).map(tag => (
+              <span key={tag} className="flex items-center gap-1 text-xs border border-gray-700 text-gray-400 px-1.5 py-0.5">
+                {tag}
+                {onUpdateTags && (
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="text-gray-600 hover:text-red-400 leading-none"
+                    disabled={savingTags}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {onUpdateTags && (
+              <input
+                ref={tagInputRef}
+                type="text"
+                placeholder="+ tag"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddTag(tagInput);
+                  }
+                }}
+                disabled={savingTags}
+                className="bg-transparent border border-gray-700 text-gray-400 text-xs px-1.5 py-0.5 w-16 focus:outline-none focus:border-amber-600 placeholder-gray-700"
+              />
+            )}
           </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-2 flex-wrap justify-end">
           {(company.status === 'done' || company.status === 'error') && (
             <button
               onClick={() => onResearch(company.id, true)}
-              className="text-xs border border-amber-700 text-amber-400 hover:bg-amber-900/20 px-3 py-1.5 uppercase tracking-wider"
+              className="text-xs border border-amber-700 text-amber-400 hover:bg-amber-900/20 px-3 py-1.5 uppercase tracking-wider print:hidden"
             >
               Re-research
             </button>
           )}
+          <button
+            onClick={handleExportPDF}
+            className="text-xs border border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500 px-3 py-1.5 uppercase tracking-wider print:hidden"
+          >
+            Export PDF
+          </button>
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="text-xs border border-gray-700 text-gray-500 hover:text-gray-300 px-3 py-1.5"
+              className="text-xs border border-gray-700 text-gray-500 hover:text-gray-300 px-3 py-1.5 print:hidden"
             >
               ↻
             </button>
@@ -163,7 +257,7 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
           <div className="text-gray-600 text-sm mb-4">No research data yet</div>
           <button
             onClick={() => onResearch(company.id)}
-            className="bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold uppercase tracking-widest px-6 py-2"
+            className="bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold uppercase tracking-widest px-6 py-2 print:hidden"
           >
             Start Research
           </button>
@@ -187,7 +281,7 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
           <p className="text-gray-500 text-xs mb-3">The research agent encountered an error.</p>
           <button
             onClick={() => onResearch(company.id)}
-            className="text-xs border border-red-800 text-red-400 hover:bg-red-900/20 px-3 py-1.5 uppercase"
+            className="text-xs border border-red-800 text-red-400 hover:bg-red-900/20 px-3 py-1.5 uppercase print:hidden"
           >
             Retry
           </button>
@@ -199,14 +293,25 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
         <>
           {/* Problem Statements */}
           <section>
-            <button
-              onClick={() => setProblemsOpen(o => !o)}
-              className="flex items-center gap-2 mb-3 w-full text-left group"
-            >
-              <span className="text-xs text-amber-400 uppercase tracking-widest font-bold">Problem Statements</span>
-              <span className="text-xs text-gray-600 border border-gray-800 px-1">{problems.length}</span>
-              <span className="text-xs text-gray-600 ml-auto group-hover:text-gray-400">{problemsOpen ? '▲' : '▼'}</span>
-            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setProblemsOpen(o => !o)}
+                className="flex items-center gap-2 flex-1 text-left group"
+              >
+                <span className="text-xs text-amber-400 uppercase tracking-widest font-bold">Problem Statements</span>
+                <span className="text-xs text-gray-600 border border-gray-800 px-1">{problems.length}</span>
+                <span className="text-xs text-gray-600 group-hover:text-gray-400">{problemsOpen ? '▲' : '▼'}</span>
+              </button>
+              {onProblemsRefresh && (
+                <button
+                  onClick={onProblemsRefresh}
+                  className="text-xs text-gray-600 hover:text-amber-400 border border-gray-800 hover:border-amber-800 px-1.5 py-0.5 print:hidden"
+                  title="Refresh problem statements"
+                >
+                  ↻ Problems
+                </button>
+              )}
+            </div>
             {problemsOpen && (
               problems.length === 0 ? (
                 <div className="text-xs text-gray-600">No problem statements found</div>
@@ -220,17 +325,28 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
 
           {/* News Feed */}
           <section>
-            <button
-              onClick={() => setNewsOpen(o => !o)}
-              className="flex items-center gap-2 mb-3 w-full text-left group"
-            >
-              <span className="text-xs text-cyan-400 uppercase tracking-widest font-bold">News Feed</span>
-              <span className="text-xs text-gray-600 border border-gray-800 px-1">{news.length}</span>
-              <span className="text-xs text-gray-600 ml-auto group-hover:text-gray-400">{newsOpen ? '▲' : '▼'}</span>
-            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setNewsOpen(o => !o)}
+                className="flex items-center gap-2 flex-1 text-left group"
+              >
+                <span className="text-xs text-cyan-400 uppercase tracking-widest font-bold">News Feed</span>
+                <span className="text-xs text-gray-600 border border-gray-800 px-1">{news.length}</span>
+                <span className="text-xs text-gray-600 group-hover:text-gray-400">{newsOpen ? '▲' : '▼'}</span>
+              </button>
+              {onNewsRefresh && (
+                <button
+                  onClick={onNewsRefresh}
+                  className="text-xs text-gray-600 hover:text-cyan-400 border border-gray-800 hover:border-cyan-800 px-1.5 py-0.5 print:hidden"
+                  title="Refresh news feed"
+                >
+                  ↻ News
+                </button>
+              )}
+            </div>
             {newsOpen && (
               <>
-                <div className="flex gap-1 mb-3 flex-wrap">
+                <div className="flex gap-1 mb-3 flex-wrap print:hidden">
                   {newsTypes.map(type => (
                     <button
                       key={type}

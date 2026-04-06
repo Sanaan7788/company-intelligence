@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Company, CompanyProfile } from 'shared';
-import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, fetchProvider } from './api';
+import { fetchCompanies, fetchCompanyProfile, addCompany, bulkAddCompanies, deleteCompany, triggerResearch, triggerNewsRefresh, triggerProblemsRefresh, updateTags, toggleShortlist, fetchProvider } from './api';
 import { Sidebar } from './components/Sidebar';
 import { ProfilePanel } from './components/ProfilePanel';
 import { BulkAddModal } from './components/BulkAddModal';
@@ -76,10 +76,42 @@ export default function App() {
     }
   };
 
+  const handleNewsRefresh = async (id: string) => {
+    await triggerNewsRefresh(id);
+    await loadCompanies();
+    if (selectedId === id) {
+      await loadProfile(id);
+    }
+  };
+
+  const handleProblemsRefresh = async (id: string) => {
+    await triggerProblemsRefresh(id);
+    await loadCompanies();
+    if (selectedId === id) {
+      await loadProfile(id);
+    }
+  };
+
+  const handleUpdateTags = async (id: string, tags: string[]) => {
+    const updated = await updateTags(id, tags);
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, tags: updated.tags } : c));
+    if (profile && profile.company.id === id) {
+      setProfile(prev => prev ? { ...prev, company: { ...prev.company, tags: updated.tags } } : prev);
+    }
+  };
+
+  const handleToggleShortlist = async (id: string, shortlisted: boolean) => {
+    const updated = await toggleShortlist(id, shortlisted);
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, shortlisted: updated.shortlisted } : c));
+    if (profile && profile.company.id === id) {
+      setProfile(prev => prev ? { ...prev, company: { ...prev.company, shortlisted: updated.shortlisted } } : prev);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a] text-gray-200">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-[#0f0f0f]">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-[#0f0f0f] print:hidden">
         <div className="flex items-center gap-3">
           <span className="text-amber-400 font-bold text-sm tracking-widest uppercase">INTEL//DASH</span>
           <span className="text-gray-600 text-xs">company intelligence</span>
@@ -100,12 +132,16 @@ export default function App() {
           onAdd={handleAddCompany}
           onDelete={handleDelete}
           onBulkAdd={() => setShowBulkModal(true)}
+          onToggleShortlist={handleToggleShortlist}
         />
         <ProfilePanel
           profile={profile}
           loading={loading}
           onResearch={handleResearch}
           onRefresh={selectedId ? () => loadProfile(selectedId) : undefined}
+          onNewsRefresh={selectedId ? () => handleNewsRefresh(selectedId) : undefined}
+          onProblemsRefresh={selectedId ? () => handleProblemsRefresh(selectedId) : undefined}
+          onUpdateTags={handleUpdateTags}
         />
       </div>
 

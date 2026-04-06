@@ -50,5 +50,10 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  // Add new columns safely (idempotent)
+  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS shortlisted BOOLEAN DEFAULT FALSE`);
+
   console.log('Database initialized');
 }
