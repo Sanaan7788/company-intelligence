@@ -157,6 +157,8 @@ export default function App() {
           companies={companies}
           onSelectCompany={handleSelectCompany}
           onAddCompany={handleAddCompany}
+          onBulkAdd={() => setShowBulkModal(true)}
+          onDiscover={() => setShowDiscoverModal(true)}
           onNavigateToCompanies={() => setPage('companies')}
           onNavigateToResearch={() => setPage('research')}
         />
@@ -169,10 +171,7 @@ export default function App() {
           profile={profile}
           profileLoading={profileLoading}
           onSelect={handleSelectCompany}
-          onAdd={handleAddCompany}
           onDelete={handleDelete}
-          onBulkAdd={() => setShowBulkModal(true)}
-          onDiscover={() => setShowDiscoverModal(true)}
           onToggleShortlist={handleToggleShortlist}
           onResearch={handleResearch}
           onNewsRefresh={handleNewsRefresh}

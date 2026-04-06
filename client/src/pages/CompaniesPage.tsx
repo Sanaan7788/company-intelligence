@@ -8,10 +8,7 @@ interface Props {
   profile: CompanyProfile | null;
   profileLoading: boolean;
   onSelect: (id: string) => void;
-  onAdd: (name: string, website: string) => Promise<Company>;
   onDelete: (id: string) => void;
-  onBulkAdd: () => void;
-  onDiscover: () => void;
   onToggleShortlist: (id: string, shortlisted: boolean) => void;
   onResearch: (id: string, force?: boolean) => void;
   onNewsRefresh: (id: string) => void;
@@ -41,33 +38,13 @@ function getDomain(website: string): string {
 
 export function CompaniesPage({
   companies, selectedId, profile, profileLoading,
-  onSelect, onAdd, onDelete, onBulkAdd, onDiscover, onToggleShortlist,
+  onSelect, onDelete, onToggleShortlist,
   onResearch, onNewsRefresh, onProblemsRefresh, onUpdateTags, onUpdateWebsite, onRefreshProfile,
 }: Props) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showShortlisted, setShowShortlisted] = useState(false);
-  const [name, setName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState('');
-
-  const handleAdd = async () => {
-    if (!name.trim() && !website.trim()) { setAddError('Name or website required'); return; }
-    setAdding(true);
-    setAddError('');
-    try {
-      const company = await onAdd(name.trim(), website.trim());
-      setName('');
-      setWebsite('');
-      onSelect(company.id);
-    } catch (err: any) {
-      setAddError(err.duplicate ? 'Already exists' : (err.message || 'Error'));
-    } finally {
-      setAdding(false);
-    }
-  };
 
   const filtered = useMemo(() => {
     let list = [...companies];
@@ -95,51 +72,8 @@ export function CompaniesPage({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Left panel — list + controls */}
+      {/* Left panel — filters + list only */}
       <div className="w-72 shrink-0 flex flex-col border-r border-gray-800 bg-[#0d0d0d] overflow-hidden">
-        {/* Add company */}
-        <div className="p-3 border-b border-gray-800 shrink-0">
-          <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">Add Company</div>
-          <input
-            type="text"
-            placeholder="Company name (optional)"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-1.5 focus:outline-none focus:border-amber-700"
-          />
-          <input
-            type="text"
-            placeholder="https://company.com (optional)"
-            value={website}
-            onChange={e => setWebsite(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 mb-2 focus:outline-none focus:border-amber-700"
-          />
-          {addError && <div className="text-red-400 text-xs mb-2">{addError}</div>}
-          <div className="flex gap-1.5 mb-1.5">
-            <button
-              onClick={handleAdd}
-              disabled={adding}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-black text-xs py-1.5 font-bold uppercase tracking-wider disabled:opacity-50"
-            >
-              {adding ? '...' : 'Add'}
-            </button>
-            <button
-              onClick={onBulkAdd}
-              className="flex-1 border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-gray-200 text-xs py-1.5 uppercase tracking-wider"
-            >
-              Bulk
-            </button>
-          </div>
-          <button
-            onClick={onDiscover}
-            className="w-full border border-cyan-800 hover:border-cyan-700 text-cyan-500 hover:text-cyan-300 text-xs py-1.5 uppercase tracking-wider"
-          >
-            ⌖ Discover by Location
-          </button>
-        </div>
-
         {/* Search + filters */}
         <div className="p-3 border-b border-gray-800 shrink-0 space-y-2">
           <input
@@ -149,7 +83,7 @@ export function CompaniesPage({
             onChange={e => setSearch(e.target.value)}
             className="w-full bg-[#111] border border-gray-700 text-gray-200 text-xs px-2 py-1.5 focus:outline-none focus:border-cyan-700 placeholder-gray-600"
           />
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <button
               onClick={() => setShowShortlisted(false)}
               className={`text-xs px-1.5 py-0.5 border ${!showShortlisted ? 'border-amber-700 text-amber-400' : 'border-gray-800 text-gray-500 hover:text-gray-400'}`}
@@ -185,7 +119,7 @@ export function CompaniesPage({
               <option value="recent">Researched</option>
             </select>
           </div>
-          <div className="text-xs text-gray-600">{filtered.length} companies</div>
+          <div className="text-xs text-gray-600">{filtered.length} of {companies.length} companies</div>
         </div>
 
         {/* Company list */}
@@ -226,7 +160,7 @@ export function CompaniesPage({
           ))}
           {filtered.length === 0 && (
             <div className="px-3 py-6 text-xs text-gray-600 text-center">
-              {search || showShortlisted || statusFilter !== 'all' ? 'No matching companies' : 'No companies yet'}
+              {search || showShortlisted || statusFilter !== 'all' ? 'No matching companies' : 'No companies yet — add them from the Dashboard'}
             </div>
           )}
         </div>

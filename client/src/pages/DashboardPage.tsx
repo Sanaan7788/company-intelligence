@@ -5,14 +5,15 @@ interface Props {
   companies: Company[];
   onSelectCompany: (id: string) => void;
   onAddCompany: (name: string, website: string) => Promise<Company>;
+  onBulkAdd: () => void;
+  onDiscover: () => void;
   onNavigateToCompanies: () => void;
   onNavigateToResearch: () => void;
 }
 
 function getDomain(website: string): string {
   try {
-    const url = new URL(website);
-    return url.hostname.replace(/^www\./, '');
+    return new URL(website).hostname.replace(/^www\./, '');
   } catch {
     return website;
   }
@@ -29,7 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   error: 'text-red-400 border-red-800',
 };
 
-export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavigateToCompanies, onNavigateToResearch }: Props) {
+export function DashboardPage({ companies, onSelectCompany, onAddCompany, onBulkAdd, onDiscover, onNavigateToCompanies, onNavigateToResearch }: Props) {
   const [name, setName] = useState('');
   const [website, setWebsite] = useState('');
   const [adding, setAdding] = useState(false);
@@ -49,10 +50,7 @@ export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavi
     .slice(0, 6);
 
   const handleAdd = async () => {
-    if (!name.trim() && !website.trim()) {
-      setError('Name or website required');
-      return;
-    }
+    if (!name.trim() && !website.trim()) { setError('Name or website required'); return; }
     setAdding(true);
     setError('');
     try {
@@ -81,16 +79,17 @@ export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavi
           { label: 'Failed', value: errored, color: 'text-red-400', border: 'border-red-900' },
         ].map(stat => (
           <div key={stat.label} className={`border ${stat.border} bg-[#111] p-3`}>
-            <div className={`text-2xl font-bold ${stat.color} ${stat.pulse ? 'animate-pulse' : ''}`}>{stat.value}</div>
+            <div className={`text-2xl font-bold ${stat.color} ${(stat as any).pulse ? 'animate-pulse' : ''}`}>{stat.value}</div>
             <div className="text-xs text-gray-500 uppercase tracking-widest mt-0.5">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick add */}
+      {/* Add companies — all 3 methods */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Single add */}
         <div className="border border-gray-800 bg-[#111] p-4">
-          <div className="text-xs text-amber-400 uppercase tracking-widest mb-3">Quick Add Company</div>
+          <div className="text-xs text-amber-400 uppercase tracking-widest mb-3">Add Company</div>
           <input
             type="text"
             placeholder="Company name (optional)"
@@ -111,46 +110,75 @@ export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavi
           <button
             onClick={handleAdd}
             disabled={adding}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-black text-xs py-1.5 font-bold uppercase tracking-wider disabled:opacity-50"
+            className="w-full bg-amber-500 hover:bg-amber-600 text-black text-xs py-2 font-bold uppercase tracking-wider disabled:opacity-50"
           >
-            {adding ? 'Adding...' : 'Add & View'}
+            {adding ? 'Adding...' : 'Add Company'}
           </button>
         </div>
 
-        {/* Shortlisted */}
-        <div className="lg:col-span-2 border border-gray-800 bg-[#111] p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-amber-400 uppercase tracking-widest">★ Shortlisted</span>
-            {shortlistedCompanies.length > 0 && (
-              <button onClick={onNavigateToCompanies} className="text-xs text-gray-500 hover:text-gray-300">
-                View all →
-              </button>
-            )}
-          </div>
-          {shortlistedCompanies.length === 0 ? (
-            <div className="text-xs text-gray-600 py-4 text-center">No shortlisted companies yet — star companies from the Companies page</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {shortlistedCompanies.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => { onSelectCompany(c.id); onNavigateToCompanies(); }}
-                  className="flex items-center justify-between p-2 border border-gray-800 hover:border-amber-800 text-left transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="text-xs text-gray-200 truncate">{c.name}</div>
-                    {!c.website.startsWith('unknown://') && (
-                      <div className="text-xs text-gray-500 truncate">{getDomain(c.website)}</div>
-                    )}
-                  </div>
-                  <span className={`text-xs border px-1 py-0.5 uppercase ml-2 shrink-0 ${STATUS_COLORS[c.status]}`}>
-                    {c.status}
-                  </span>
-                </button>
-              ))}
-            </div>
+        {/* Bulk add */}
+        <div className="border border-gray-800 bg-[#111] p-4 flex flex-col">
+          <div className="text-xs text-amber-400 uppercase tracking-widest mb-2">Bulk Import</div>
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Paste a list of companies — one per line. Accepts names, URLs, or both.<br />
+            Duplicates are skipped automatically.
+          </p>
+          <button
+            onClick={onBulkAdd}
+            className="mt-auto w-full border border-gray-600 hover:border-amber-700 text-gray-400 hover:text-amber-400 text-xs py-2 uppercase tracking-wider transition-colors"
+          >
+            Open Bulk Import
+          </button>
+        </div>
+
+        {/* Discover by location */}
+        <div className="border border-cyan-900/40 bg-[#111] p-4 flex flex-col">
+          <div className="text-xs text-cyan-500 uppercase tracking-widest mb-2">⌖ Discover by Location</div>
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Enter a city, zip code, or region with an optional industry filter. AI will find real companies in that area.
+          </p>
+          <button
+            onClick={onDiscover}
+            className="mt-auto w-full border border-cyan-800 hover:border-cyan-600 text-cyan-500 hover:text-cyan-300 text-xs py-2 uppercase tracking-wider transition-colors"
+          >
+            Discover Companies
+          </button>
+        </div>
+      </div>
+
+      {/* Shortlisted */}
+      <div className="border border-gray-800 bg-[#111] p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-amber-400 uppercase tracking-widest">★ Shortlisted</span>
+          {shortlistedCompanies.length > 0 && (
+            <button onClick={onNavigateToCompanies} className="text-xs text-gray-500 hover:text-gray-300">
+              View all →
+            </button>
           )}
         </div>
+        {shortlistedCompanies.length === 0 ? (
+          <div className="text-xs text-gray-600 py-4 text-center">No shortlisted companies yet — star companies from the Companies page</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {shortlistedCompanies.map(c => (
+              <button
+                key={c.id}
+                onClick={() => { onSelectCompany(c.id); onNavigateToCompanies(); }}
+                className="flex items-center justify-between p-2 border border-gray-800 hover:border-amber-800 text-left transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs text-gray-200 truncate">{c.name}</div>
+                  {!c.website.startsWith('unknown://') && (
+                    <div className="text-xs text-gray-600 truncate">{getDomain(c.website)}</div>
+                  )}
+                </div>
+                <span className={`text-xs border px-1 py-0.5 uppercase ml-2 shrink-0 ${STATUS_COLORS[c.status]}`}>
+                  {c.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recently Researched */}
@@ -177,14 +205,14 @@ export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavi
                     {daysSince(c.last_researched_at!) === 0 ? 'today' : `${daysSince(c.last_researched_at!)}d ago`}
                   </div>
                 </div>
-                {c.shortlisted && <span className="text-amber-400 text-sm ml-2">★</span>}
+                {c.shortlisted && <span className="text-amber-400 text-sm ml-2 shrink-0">★</span>}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Pending + need attention */}
+      {/* Needs attention */}
       {(pending > 0 || errored > 0) && (
         <div className="border border-gray-800 bg-[#111] p-4">
           <div className="flex items-center justify-between mb-3">
@@ -193,9 +221,9 @@ export function DashboardPage({ companies, onSelectCompany, onAddCompany, onNavi
               Go to Research →
             </button>
           </div>
-          <div className="flex gap-4 text-xs text-gray-500">
-            {pending > 0 && <span><span className="text-gray-300">{pending}</span> companies awaiting research</span>}
-            {errored > 0 && <span><span className="text-red-400">{errored}</span> research failures</span>}
+          <div className="flex gap-6 text-xs text-gray-500">
+            {pending > 0 && <span><span className="text-gray-300 font-bold">{pending}</span> companies awaiting research</span>}
+            {errored > 0 && <span><span className="text-red-400 font-bold">{errored}</span> research failures</span>}
           </div>
         </div>
       )}
