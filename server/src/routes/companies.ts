@@ -143,6 +143,7 @@ companiesRouter.delete('/:id', async (req: Request, res: Response) => {
 // POST /api/companies/:id/research - trigger research
 companiesRouter.post('/:id/research', async (req: Request, res: Response) => {
   const { id } = req.params;
+  const force = req.query.force === 'true';
 
   try {
     const companyResult = await pool.query(`SELECT * FROM companies WHERE id = $1`, [id]);
@@ -160,6 +161,35 @@ companiesRouter.post('/:id/research', async (req: Request, res: Response) => {
     // Run research in background
     (async () => {
       try {
+        // Check cache: another company with same website that's already done
+        if (!force) {
+          const cached = await pool.query(
+            `SELECT id FROM companies WHERE website = $1 AND status = 'done' AND id != $2 LIMIT 1`,
+            [company.website, id]
+          );
+          if (cached.rows.length > 0) {
+            const sourceId = cached.rows[0].id;
+            await pool.query(`DELETE FROM news_items WHERE company_id = $1`, [id]);
+            await pool.query(`DELETE FROM problem_statements WHERE company_id = $1`, [id]);
+            await pool.query(
+              `INSERT INTO news_items (company_id, title, summary, source_type, source_name, source_url, published_at)
+               SELECT $1, title, summary, source_type, source_name, source_url, published_at FROM news_items WHERE company_id = $2`,
+              [id, sourceId]
+            );
+            await pool.query(
+              `INSERT INTO problem_statements (company_id, title, description, opportunity, source_url, source_name, difficulty)
+               SELECT $1, title, description, opportunity, source_url, source_name, difficulty FROM problem_statements WHERE company_id = $2`,
+              [id, sourceId]
+            );
+            await pool.query(
+              `UPDATE companies SET status = 'done', last_researched_at = NOW() WHERE id = $1`,
+              [id]
+            );
+            console.log(`Cache hit for ${company.website} — cloned from ${sourceId}`);
+            return;
+          }
+        }
+
         const result = await researchCompany(company.name, company.website);
 
         // Clear old data

@@ -42,8 +42,9 @@ export async function deleteCompany(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete company');
 }
 
-export async function triggerResearch(id: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/companies/${id}/research`, { method: 'POST' });
+export async function triggerResearch(id: string, force = false): Promise<void> {
+  const url = `${BASE_URL}/api/companies/${id}/research${force ? '?force=true' : ''}`;
+  const res = await fetch(url, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to trigger research');
 }
 

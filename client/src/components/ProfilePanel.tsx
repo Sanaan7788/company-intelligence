@@ -4,7 +4,7 @@ import { CompanyProfile, NewsItem, ProblemStatement } from 'shared';
 interface Props {
   profile: CompanyProfile | null;
   loading: boolean;
-  onResearch: (id: string) => void;
+  onResearch: (id: string, force?: boolean) => void;
   onRefresh?: () => void;
 }
 
@@ -140,7 +140,7 @@ export function ProfilePanel({ profile, loading, onResearch, onRefresh }: Props)
         <div className="flex gap-2">
           {(company.status === 'done' || company.status === 'error') && (
             <button
-              onClick={() => onResearch(company.id)}
+              onClick={() => onResearch(company.id, true)}
               className="text-xs border border-amber-700 text-amber-400 hover:bg-amber-900/20 px-3 py-1.5 uppercase tracking-wider"
             >
               Re-research

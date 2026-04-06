@@ -68,8 +68,8 @@ export default function App() {
     await loadCompanies();
   };
 
-  const handleResearch = async (id: string) => {
-    await triggerResearch(id);
+  const handleResearch = async (id: string, force = false) => {
+    await triggerResearch(id, force);
     await loadCompanies();
     if (selectedId === id) {
       await loadProfile(id);
